@@ -1,0 +1,4 @@
+client = Client()
+access_token = "TU_TOKEN_AQUI"
+athlete = client.get_athlete()
+activities = client.get_activities(limit=10)
