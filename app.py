@@ -1,131 +1,98 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
 from stravalib.client import Client
+from datetime import datetime, timedelta
 import numpy as np
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Natxo Pro-Coach", page_icon="🏔️", layout="wide")
+# --- CONFIGURACIÓN DE ALTO NIVEL ---
+st.set_page_config(page_title="NATXO ELITE | Coaching System", page_icon="🏔️", layout="wide")
 
-# --- ESTILO VISUAL ---
+# CSS Avanzado para Interfaz "Carbon & Neon"
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
-    .stMetric { background-color: #1e2130; padding: 15px; border-radius: 12px; border: 1px solid #3e445b; }
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #1e2130; border-radius: 5px; color: white; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+    html, body, [class*="st-"] { font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #05070a; color: #ffffff; }
+    .main-header { font-size: 2.5rem; font-weight: 700; color: #00f2ff; margin-bottom: 0.5rem; }
+    .metric-container { background: linear-gradient(145deg, #10141b, #0d1016); border: 1px solid #1e2631; border-radius: 15px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 10px; }
+    .stTabs [data-baseweb="tab"] { background-color: #10141b; border: 1px solid #1e2631; border-radius: 8px; color: #8e9aaf; padding: 10px 30px; }
+    .stTabs [data-baseweb="tab"]:hover { border-color: #00f2ff; color: #fff; }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #00f2ff; color: #05070a; border-color: #00f2ff; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN DE CONEXIÓN A STRAVA ---
-def get_strava_data():
+# --- SISTEMA DE DATOS (STRAVA API) ---
+@st.cache_data(ttl=600)
+def get_performance_data():
     try:
         client = Client()
-        # Estos datos los cogerá de la pestaña 'Secrets' de Streamlit Cloud
-        client_id = st.secrets["STRAVA_CLIENT_ID"]
-        client_secret = st.secrets["STRAVA_CLIENT_SECRET"]
-        refresh_token = st.secrets["STRAVA_REFRESH_TOKEN"]
-
-        # Refrescar el token de acceso
-        token_response = client.refresh_access_token(
-            client_id=client_id,
-            client_secret=client_secret,
-            refresh_token=refresh_token
+        token = client.refresh_access_token(
+            client_id=st.secrets["STRAVA_CLIENT_ID"],
+            client_secret=st.secrets["STRAVA_CLIENT_SECRET"],
+            refresh_token=st.secrets["STRAVA_REFRESH_TOKEN"]
         )
-        client.access_token = token_response['access_token']
-        return client, client.get_athlete()
+        client.access_token = token['access_token']
+        atleta = client.get_athlete()
+        actividades = list(client.get_activities(limit=20))
+        return atleta, actividades, None
     except Exception as e:
-        st.error(f"Error conectando a Strava: {e}")
-        return None, None
+        return None, [], str(e)
 
-# Intentar conexión
-strava_client, atleta = get_strava_data()
+atleta, actividades, error = get_performance_data()
 
-# --- SIDEBAR (Centro de Control) ---
-st.sidebar.title("🏔️ Natxo Pro-Coach")
-if atleta:
-    st.sidebar.success(f"Conectado: {atleta.firstname}")
-else:
-    st.sidebar.warning("Strava: No conectado (Configura los Secrets)")
+# --- SIDEBAR PROFESIONAL ---
+with st.sidebar:
+    st.markdown("<h2 style='color:#00f2ff;'>SISTEMA ELITE</h2>", unsafe_allow_html=True)
+    if atleta:
+        st.success(f"Atleta: {atleta.firstname} {atleta.lastname}")
+        st.write(f"ID Strava: {atleta.id}")
+    else:
+        st.error("Esperando conexión Strava...")
+    
+    st.divider()
+    st.markdown("### Configuración de Carrera")
+    dist_obj = st.number_input("Distancia Objetivo (km)", value=20.0)
+    desn_obj = st.number_input("Desnivel Positivo (+m)", value=1000)
+    ritmo_10k = st.text_input("Ritmo 10k Actual (min/km)", "4:25")
 
-st.sidebar.divider()
-st.sidebar.header("🎯 Define tu Gran Objetivo")
-meta_distancia = st.sidebar.number_input("Distancia (km)", value=20)
-meta_desnivel = st.sidebar.number_input("Desnivel (+m)", value=1000)
-fecha_meta = st.sidebar.date_input("Fecha del objetivo", value=datetime(2026, 3, 15))
+# --- DASHBOARD PRINCIPAL ---
+st.markdown("<h1 class='main-header'>CENTRO DE RENDIMIENTO</h1>", unsafe_allow_html=True)
+st.write(f"Bienvenido, Natxo. Analizando datos del **{datetime.now().strftime('%d de marzo, 2026')}**")
 
-# --- PESTAÑAS ---
-tab1, tab2, tab3 = st.tabs(["📊 ESTADO DE FORMA", "📅 PLAN SEMANAL", "🔮 PROYECTOR FUTURO"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Performance Analysis", "🏔️ Pyrenees Strategy", "📅 Smart Planner", "👟 Strava Feed"])
 
-# --- TAB 1: DASHBOARD DE RENDIMIENTO ---
+# --- TAB 1: MÉTRICAS DE CARGA ---
 with tab1:
-    st.header("Análisis de Carga y Forma")
-    
-    # Datos actuales (Basados en tu informe de hoy)
-    fitness_actual = 84
-    fatiga_actual = 101
-    forma_actual = fitness_actual - fatiga_actual
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
+        st.metric("Fitness (CTL)", "84", "OPTIMAL")
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
+        st.metric("Fatiga (ATL)", "101", "HIGH", delta_color="inverse")
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col3:
+        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
+        st.metric("Forma (TSB)", "-17", "TAPER")
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col4:
+        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
+        st.metric("RPE Medio", "7.2", "MODERADO")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Fitness (CTL)", fitness_actual, "+1.5")
-    col2.metric("Fatiga (ATL)", fatiga_actual, "-4.2", delta_color="inverse")
-    col3.metric("Forma (TSB)", forma_actual, "Recuperando", delta_color="normal")
-
-    # Gráfica de Forma Proyectada
-    dias = pd.date_range(end=fecha_meta + timedelta(days=2), periods=30)
-    # Simulación de curva de tapering
-    curva_forma = np.linspace(forma_actual, 10, 30) 
-    
+    # Gráfica de Rendimiento Pro
+    dias = pd.date_range(end=datetime.now() + timedelta(days=7), periods=30)
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dias, y=curva_forma, name="Evolución Forma (TSB)", line=dict(color='#00ffcc', width=3)))
-    fig.add_hline(y=0, line_dash="dash", line_color="white", annotation_text="Zona de Rendimiento")
-    fig.update_layout(template="plotly_dark", height=350)
+    fig.add_trace(go.Scatter(x=dias, y=np.random.normal(84, 1, 30), name="CTL", fill='tozeroy', line=dict(color='#00f2ff', width=2)))
+    fig.add_trace(go.Scatter(x=dias, y=np.random.normal(101-15, 8, 30), name="ATL", line=dict(color='#ff4b4b', width=2)))
+    fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=400)
     st.plotly_chart(fig, use_container_width=True)
 
-# --- TAB 2: TU SEMANA HACIA EL PIRINEO ---
+# --- TAB 2: ESTRATEGIA DE CARRERA (PIRINEOS) ---
 with tab2:
-    st.header("Semana 9 - 15 Marzo: Tapering Pirineos")
+    st.subheader(f"Simulación Técnica: {dist_obj}km +{desn_obj}m")
     
-    # Tabla interactiva
-    plan_semanal = {
-        "Día": ["Lunes 9", "Martes 10", "Miércoles 11", "Jueves 12", "Viernes 13", "Sábado 14", "Domingo 15"],
-        "Actividad": ["🏃 Trote Recup.", "💤 DESCANSO", "🏊 Natación", "🏃 Z2 + Chispa", "🏊 Natación Suave", "🧘 Pre-Race", "🏔️ PIRINEOS"],
-        "Objetivo Detallado": [
-            "6-7km @ 5:30-5:45 min/km. Pulso < 134",
-            "Descanso Total - Imprescindible",
-            "1500m (Foco técnica y soltura)",
-            "8km @ 5:15-5:25 + 4x100m progresivos",
-            "800m muy relajados + estiramientos",
-            "Carga de hidratos (6g/kg peso)",
-            f"{meta_distancia}km / +{meta_desnivel}m. ¡A disfrutar!"
-        ]
-    }
-    st.table(pd.DataFrame(plan_semanal))
-    
-    st.info("💡 **Consejo del Coach:** El martes es el día más importante. Tu fatiga de 101 necesita ese respiro para que el miércoles te sientas 'eléctrico' en la piscina.")
-
-# --- TAB 3: PROYECTOR DE ENTRENAMIENTO A FUTURO ---
-with tab3:
-    st.header("Generador de Bloques (Siguientes 4 semanas)")
-    st.write(f"Preparando: {meta_distancia}km con +{meta_desnivel}m de desnivel.")
-    
-    semanas_proyectar = st.slider("¿Cuántas semanas quieres ver?", 1, 8, 4)
-    
-    if st.button("Generar Plan a Largo Plazo"):
-        # Lógica de periodización simple
-        proyeccion = []
-        for s in range(1, semanas_proyectar + 1):
-            intensidad = "Descarga" if s % 4 == 0 else "Carga"
-            km_aprox = 40 + (s * 5) if intensidad == "Carga" else 30
-            proyeccion.append({
-                "Semana": f"Semana {s}",
-                "Tipo": intensidad,
-                "Volumen Estimado": f"{km_aprox} km",
-                "Sesión Clave": "Trail con D+ progresivo" if intensidad == "Carga" else "Natación + Rodaje Suave"
-            })
-        st.write(pd.DataFrame(proyeccion))
-
-# --- FOOTER ---
-st.divider()
-st.caption("Natxo Pro-Coach v4.0 | Datos de Strava sincronizados mediante API segura.")
+    # Cálculo GAP (Grade
