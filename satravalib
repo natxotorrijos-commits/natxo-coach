@@ -1,4 +1,4 @@
 client = Client()
-access_token = "TU_TOKEN_AQUI"
+access_token = d1e57245e434da5be51f4a240f98a6591b3d1e13
 athlete = client.get_athlete()
 activities = client.get_activities(limit=10)
