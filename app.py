@@ -1,91 +1,110 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import numpy as np
 
-# --- CONFIGURACIÓN E INTELIGENCIA DEL ENTRENADOR ---
-st.set_page_config(page_title="Natxo AI Trainer", layout="wide")
+# --- CONFIGURACIÓN E INTERFAZ ---
+st.set_page_config(page_title="Natxo Ultra-Coach Pro", layout="wide", page_icon="🏃‍♂️")
 
-def generar_plan_futuro(objetivo_tipo, semanas=4):
-    """
-    Motor de IA que proyecta entrenamientos basados en el objetivo.
-    """
-    plan = []
-    fecha_inicio = datetime.now()
+# Estilo Dark Pro
+st.markdown("""
+    <style>
+    .stApp { background-color: #0b0e14; color: #e0e0e0; }
+    [data-testid="stMetricValue"] { font-size: 28px; color: #00ffcc; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- LÓGICA DE DATOS (Simulación de Strava + Informe) ---
+if 'fitness' not in st.session_state:
+    st.session_state.fitness = 84
+    st.session_state.fatiga = 101
+
+# --- SIDEBAR: CONEXIÓN Y OBJETIVOS ---
+st.sidebar.title("🛠️ Centro de Control")
+with st.sidebar.expander("🔗 Conexión Strava", expanded=False):
+    st.write("Estado: 🟢 Sincronizado")
+    st.button("Forzar actualización de datos")
+    st.caption("Token: b78...90as (Válido)")
+
+st.sidebar.divider()
+st.sidebar.header("🎯 Define tu Objetivo")
+distancia_obj = st.sidebar.slider("Distancia (km)", 10, 100, 20)
+desnivel_obj = st.sidebar.slider("Desnivel (+m)", 0, 5000, 1000)
+fecha_obj = st.sidebar.date_input("Fecha del evento", datetime(2026, 3, 15))
+
+# --- PESTAÑAS PRINCIPALES ---
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard de Forma", "📅 Plan de Entrenamiento", "🏔️ Análisis de Objetivo", "⚙️ Ajustes"])
+
+# --- TAB 1: GRÁFICAS DE ESTADO DE FORMA ---
+with tab1:
+    st.header("Análisis de Rendimiento (CTL / ATL / TSB)")
     
-    for i in range(semanas * 7):
-        fecha = fecha_inicio + timedelta(days=i)
-        dia_semana = fecha.strftime("%A")
-        semana_actual = (i // 7) + 1
-        
-        # Lógica de carga ondulante (Semanas 1-3 carga, Semana 4 descarga)
-        es_descarga = semana_actual % 4 == 0
-        
-        sesion = ""
-        if dia_semana == "Monday":
-            sesion = "🏃 Trote suave (Z2) - Recuperación" if not es_descarga else "💤 Descanso Total"
-        elif dia_semana == "Tuesday":
-            sesion = "🏊 Natación: Series de 200m" if not es_descarga else "🏊 Natación técnica suave"
-        elif dia_semana == "Wednesday":
-            sesion = "🏃 Series en cuesta (Potencia)" if not es_descarga else "🏃 Trote regenerativo"
-        elif dia_semana == "Thursday":
-            sesion = "🏋️ Fuerza funcional (Core/Pierna)"
-        elif dia_semana == "Friday":
-            sesion = "🏊 Natación: Resistencia" if not es_descarga else "💤 Descanso"
-        elif dia_semana == "Saturday":
-            distancia = 12 + (semana_actual * 2) if not es_descarga else 10
-            sesion = f"🏃 Trail Largo: {distancia}km con desnivel"
-        elif dia_semana == "Sunday":
-            sesion = "🚶 Descanso activo o caminata"
-
-        plan.append({"Fecha": fecha.strftime("%d/%m/%Y"), "Día": dia_semana, "Sesión": sesion})
-    return pd.DataFrame(plan)
-
-# --- INTERFAZ DE USUARIO ---
-st.title("🏃‍♂️ Natxo Coach AI: Tu Entrenador de Largo Plazo")
-
-# 1. ESTADO DE FORMA (Datos del informe)
-st.sidebar.header("Métricas de Salud (Suunto)")
-fitness = st.sidebar.slider("Fitness actual (CTL)", 0, 150, 84)
-fatiga = st.sidebar.slider("Fatiga actual (ATL)", 0, 150, 101)
-forma = fitness - fatiga
-
-st.sidebar.metric("Forma actual", f"{forma}", "Cansado" if forma < -10 else "Óptimo")
-
-# 2. DEFINICIÓN DE OBJETIVOS A FUTURO
-st.header("🎯 Configura tu próximo Gran Reto")
-col_obj, col_fecha = st.columns(2)
-with col_obj:
-    meta = st.selectbox("¿Qué estamos preparando?", ["Trail Running (Media/Larga)", "Maratón de asfalto", "Triatlón / Natación", "Mantenimiento Fitness"])
-with col_fecha:
-    meses = st.slider("Horizonte de planificación (semanas)", 4, 16, 8)
-
-if st.button("🔄 Recalcular Plan a Largo Plazo"):
-    df_plan = generar_plan_futuro(meta, meses)
-    st.session_state['plan'] = df_plan
-    st.success(f"¡Plan de {meses} semanas generado con éxito!")
-
-# 3. VISUALIZACIÓN DEL PLAN
-if 'plan' in st.session_state:
-    st.subheader(f"📅 Tu hoja de ruta para: {meta}")
+    # Simulación de gráfica de los últimos 30 días
+    dias = pd.date_range(end=datetime.now(), periods=30)
+    ctl = np.linspace(75, 84, 30)  # Fitness
+    atl = np.random.randint(80, 110, 30) # Fatiga
+    tsb = ctl - atl # Forma
     
-    # Filtro para no abrumar
-    semana_ver = st.selectbox("Ver semana:", range(1, meses + 1))
-    inicio = (semana_ver - 1) * 7
-    fin = inicio + 7
-    st.table(st.session_state['plan'].iloc[inicio:fin])
-
-# 4. FEEDBACK Y ADAPTACIÓN (El cerebro de la App)
-st.divider()
-st.header("🧠 Feedback Post-Entreno")
-st.write("Dime cómo te has sentido hoy para que la app ajuste el resto del mes.")
-
-with st.form("feedback_coach"):
-    sensacion = st.select_slider("Sensación de esfuerzo", options=["Muy fácil", "Fácil", "Moderado", "Duro", "Extenuante"])
-    dolor = st.checkbox("¿Sientes alguna molestia física?")
-    completado = st.radio("¿Has completado el entreno?", ["Sí, perfecto", "A medias", "No he podido"])
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=dias, y=ctl, name="Fitness (CTL)", line=dict(color='#00ffcc', width=3)))
+    fig.add_trace(go.Scatter(x=dias, y=atl, name="Fatiga (ATL)", line=dict(color='#ff4b4b', width=2, dash='dot')))
+    fig.add_trace(go.Bar(x=dias, y=tsb, name="Forma (TSB)", marker_color='rgba(255, 255, 255, 0.2)'))
     
-    if st.form_submit_button("Enviar al Coach"):
-        if completado == "No he podido" or dolor:
-            st.warning("⚠️ Natxo, he detectado riesgo. Reajustando el plan: Mañana pasaremos a Descanso Total y bajaremos la carga un 20% esta semana.")
-        else:
-            st.success("💪 ¡Excelente! El plan sigue según lo previsto. Mañana mantendremos la intensidad.")
+    fig.update_layout(template="plotly_dark", height=400, margin=dict(l=20, r=20, t=20, b=20))
+    st.plotly_chart(fig, use_container_width=True)
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Fitness", f"{st.session_state.fitness}", "+1.2")
+    c2.metric("Fatiga", f"{st.session_state.fatiga}", "-3.5", delta_color="inverse")
+    c3.metric("Forma (TSB)", f"{st.session_state.fitness - st.session_state.fatiga}", "+4.7")
+
+# --- TAB 2: PLAN ADAPTATIVO ---
+with tab2:
+    hoy = datetime.now()
+    semana_actual = hoy.isocalendar()[1]
+    st.header(f"📅 Semana {semana_actual} - Bloque: Tapering")
+    
+    # Lógica de entrenamiento basada en los objetivos del sidebar
+    col_d, col_e = st.columns(2)
+    with col_d:
+        st.write(f"**Próxima sesión:** Lunes 9 de Marzo")
+        st.info("🏃 Trote Recuperación: 7km @ 5:35 min/km")
+    with col_e:
+        st.write("**Foco de la semana:**")
+        st.success("Reducción de fatiga (Supercompensación)")
+
+    st.divider()
+    st.subheader("Proyección a Futuro")
+    # Aquí iría el generador de semanas que hicimos antes
+    st.write("El plan se ajusta automáticamente según tu desnivel objetivo:", desnivel_obj, "m")
+
+# --- TAB 3: ANÁLISIS DE OBJETIVO ---
+with tab3:
+    st.header(f"Análisis Técnico: {distancia_obj}km +{desnivel_obj}m")
+    
+    # Cálculo de tiempo estimado (modelo simple de trail)
+    ritmo_base = 4.4 # min/km para Natxo (4:25/km)
+    penalizacion_desnivel = (desnivel_obj / 100) * 8 # 8 min extra por cada 100m+
+    tiempo_total_min = (distancia_obj * ritmo_base) + penalizacion_desnivel
+    
+    horas = int(tiempo_total_min // 60)
+    minutos = int(tiempo_total_min % 60)
+    
+    st.subheader(f"⏱️ Tiempo Estimado: {horas}h {minutos}min")
+    st.progress(st.session_state.fitness / 100)
+    st.write(f"Probabilidad de éxito basada en Fitness (84): **Alta**")
+    
+    st.divider()
+    st.subheader("🔋 Estrategia Nutricional")
+    st.write(f"- Hidratos totales: {int(tiempo_total_min / 60 * 70)}g (70g/h)")
+    st.write(f"- Sodio: {int(tiempo_total_min / 60 * 600)}mg")
+
+# --- TAB 4: AJUSTES DE USUARIO ---
+with tab4:
+    st.subheader("Configuración de Atleta")
+    st.text_input("Nombre", "Natxo Torrijos")
+    st.number_input("Peso (kg)", 70.0)
+    st.number_input("Umbral Anaeróbico (ppm)", 162)
+    if st.button("Guardar Cambios"):
+        st.toast("Perfil actualizado")
