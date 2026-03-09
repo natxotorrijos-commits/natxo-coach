@@ -137,8 +137,8 @@ with tab4:
                 
                 with col1:
                     try:
-                    distancia_km = float(act.distance) / 1000 if act.distance else 0
-                    st.metric("Distancia", f"{distancia_km:.2f} km")
+                        distancia_km = float(act.distance) / 1000 if act.distance else 0
+                        st.metric("Distancia", f"{distancia_km:.2f} km")
                 except (AttributeError, TypeError):
                     st.metric("Distancia", "N/A")
                 
