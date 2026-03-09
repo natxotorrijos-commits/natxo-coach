@@ -161,7 +161,7 @@ with tab4:
                 st.write(f"**Tipo:** {act.type}")
                 try:
                     desc = getattr(act, 'description', None)
-                        if desc:
-                            st.write(f"**Descripción:** {desc}")
+                    if desc:
+                        st.write(f"**Descripción:** {desc}")
                 except (AttributeError, TypeError):
                     pass
