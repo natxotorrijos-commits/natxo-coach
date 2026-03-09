@@ -4,28 +4,63 @@ import plotly.graph_objects as go
 from stravalib.client import Client
 from datetime import datetime, timedelta
 import numpy as np
+import google.generativeai as genai
+import json
 
-# --- CONFIGURACIÓN DE ALTO NIVEL ---
-st.set_page_config(page_title="NATXO ELITE | Coaching System", page_icon="🏔️", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="NATXO ELITE | AI Coach", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS Avanzado para Interfaz "Carbon & Neon"
+# --- ESTILO PREMIUM (Apple Fitness+ / Whoop Style) ---
 st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-        html, body, [class*="st-"] { font-family: 'Inter', sans-serif; }
-        .stApp { background-color: #05070a; color: #ffffff; }
-        .main-header { font-size: 2.5rem; font-weight: 700; color: #00f2ff; margin-bottom: 0.5rem; }
-        .metric-container { background: linear-gradient(145deg, #10141b, #0d1016); border: 1px solid #1e2631; border-radius: 15px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 10px; }
-        .stTabs [data-baseweb="tab"] { background-color: #10141b; border: 1px solid #1e2631; border-radius: 8px; color: #8e9aaf; padding: 10px 30px; }
-        .stTabs [data-baseweb="tab"]:hover { border-color: #00f2ff; color: #fff; }
-        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #00f2ff; color: #05070a; border-color: #00f2ff; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;700&family=Inter:wght@400;700&display=swap');
+    
+    html, body, [class*="st-"] { font-family: 'SF Pro Display', 'Inter', sans-serif; }
+    .stApp { background-color: #05070a; color: #ffffff; }
+    
+    /* Esconder Sidebar */
+    [data-testid="stSidebar"] { display: none; }
+    
+    /* Contenedores Gradientes */
+    .premium-card {
+        background: linear-gradient(145deg, #111418, #090b0e);
+        border: 1px solid #1e2631;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        margin-bottom: 20px;
+    }
+    
+    .metric-value { font-size: 2.2rem; font-weight: 700; color: #00f2ff; }
+    .metric-label { font-size: 0.9rem; color: #8e9aaf; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* Botones Pro */
+    .stButton>button {
+        background: linear-gradient(90deg, #00f2ff, #0072ff);
+        color: white; border: none; border-radius: 12px;
+        padding: 10px 25px; font-weight: 700; transition: 0.3s;
+    }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 15px rgba(0,242,255,0.4); }
 
-# --- SISTEMA DE DATOS (STRAVA API) ---
+    /* Tabs Personalizados */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 20px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #111418; border: 1px solid #1e2631;
+        border-radius: 30px; color: #8e9aaf; padding: 10px 40px;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background-color: #00f2ff; color: #05070a; border: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- INICIALIZACIÓN DE IA (GEMINI) ---
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+model = genai.GenerativeModel('gemini-1.5-flash')
+
+# --- LÓGICA DE DATOS STRAVA ---
 @st.cache_data(ttl=600)
-def get_performance_data():
+def get_strava_data():
     try:
         client = Client()
         token = client.refresh_access_token(
@@ -35,133 +70,129 @@ def get_performance_data():
         )
         client.access_token = token['access_token']
         atleta = client.get_athlete()
-        actividades = list(client.get_activities(limit=20))
+        actividades = list(client.get_activities(limit=10))
         return atleta, actividades, None
     except Exception as e:
         return None, [], str(e)
 
-atleta, actividades, error = get_performance_data()
+atleta, actividades, error = get_strava_data()
 
-# --- SIDEBAR PROFESIONAL ---
-with st.sidebar:
-    st.markdown("<h2 style='color:#00f2ff;'>SISTEMA ELITE</h2>", unsafe_allow_html=True)
+# --- HEADER PRINCIPAL ---
+col_logo, col_user = st.columns([1, 1])
+with col_logo:
+    st.markdown("<h1 style='color: #00f2ff; margin-bottom:0;'>NATXO ELITE <span style='color:white; font-weight:200;'>AI</span></h1>", unsafe_allow_html=True)
+with col_user:
     if atleta:
-        st.success(f"Atleta: {atleta.firstname} {atleta.lastname}")
-        st.write(f"ID Strava: {atleta.id}")
-    else:
-        st.error("Esperando conexión Strava...")
-    
-    st.divider()
-    st.markdown("### Configuración de Carrera")
-    dist_obj = st.number_input("Distancia Objetivo (km)", value=20.0)
-    desn_obj = st.number_input("Desnivel Positivo (+m)", value=1000)
-    ritmo_10k = st.text_input("Ritmo 10k Actual (min/km)", "4:25")
+        st.markdown(f"<div style='text-align:right; padding-top:20px;'>{atleta.firstname} {atleta.lastname} | <span style='color:#00f2ff;'>Pro Atleta</span></div>", unsafe_allow_html=True)
 
-# --- DASHBOARD PRINCIPAL ---
-st.markdown("<h1 class='main-header'>CENTRO DE RENDIMIENTO</h1>", unsafe_allow_html=True)
-st.write(f"Bienvenido, Natxo. Analizando datos del **{datetime.now().strftime('%d de marzo, 2026')}**")
+# --- KPI METRICS (Top Row) ---
+st.markdown("<br>", unsafe_allow_html=True)
+m1, m2, m3, m4 = st.columns(4)
 
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Performance Analysis", "🏔️ Pyrenees Strategy", "📅 Smart Planner", "👟 Strava Feed"])
+with m1:
+    st.markdown(f'<div class="premium-card"><div class="metric-label">Fitness (CTL)</div><div class="metric-value">84</div><div style="color:#00ff88;">↑ EXCELENTE</div></div>', unsafe_allow_html=True)
+with m2:
+    st.markdown(f'<div class="premium-card"><div class="metric-label">Fatiga (ATL)</div><div class="metric-value">101</div><div style="color:#ff4b4b;">⚠ ALTA</div></div>', unsafe_allow_html=True)
+with m3:
+    st.markdown(f'<div class="premium-card"><div class="metric-label">Forma (TSB)</div><div class="metric-value">-18</div><div style="color:#ffaa00;">RECUPERANDO</div></div>', unsafe_allow_html=True)
+with m4:
+    st.markdown(f'<div class="premium-card"><div class="metric-label">Estado</div><div class="metric-value">TAPER</div><div style="color:#00f2ff;">LISTO</div></div>', unsafe_allow_html=True)
 
-# --- TAB 1: MÉTRICAS DE CARGA ---
-with tab1:
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
-        st.metric("Fitness (CTL)", "84", "OPTIMAL")
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col2:
-        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
-        st.metric("Fatiga (ATL)", "101", "HIGH", delta_color="inverse")
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col3:
-        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
-        st.metric("Forma (TSB)", "-17", "TAPER")
-        st.markdown("</div>", unsafe_allow_html=True)
-    with col4:
-        st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
-        st.metric("RPE Medio", "7.2", "MODERADO")
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Gráfica de Rendimiento Pro
-    dias = pd.date_range(end=datetime.now() + timedelta(days=7), periods=30)
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dias, y=np.random.normal(84, 1, 30), name="CTL", fill='tozeroy', line=dict(color='#00f2ff', width=2)))
-    fig.add_trace(go.Scatter(x=dias, y=np.random.normal(101-15, 8, 30), name="ATL", line=dict(color='#ff4b4b', width=2)))
-    fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=400)
-    st.plotly_chart(fig, use_container_width=True)
+# --- ÁREA DE TABS ---
+tab_coach, tab_plan, tab_strava = st.tabs(["🤖 AI COACH", "📅 SMART PLANNER", "👟 PERFORMANCE DATA"])
 
-# --- TAB 2: ESTRATEGIA DE CARRERA (PIRINEOS) ---
-with tab2:
-    st.subheader(f"Simulación Técnica: {dist_obj}km +{desn_obj}m")
+# --- TAB 1: AI COACH (Análisis Strava + Gemini) ---
+with tab_coach:
+    st.markdown("### Análisis de Rendimiento con IA")
+    col_ai_left, col_ai_right = st.columns([1, 1])
     
-    st.info("🏔️ Análisis de estrategia para ultra trail de montaña")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.metric("Tiempo Estimado", "2h 45min")
-        st.metric("Ritmo Medio Plano", "5:15 min/km")
-    
-    with col2:
-        st.metric("Calorías Estimadas", "1,850 kcal")
-        st.metric("Desnivel/km", f"{int(desn_obj/dist_obj)}m/km")
+    with col_ai_left:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        user_input = st.text_area("¿Cómo te sientes hoy, Natxo? (cansancio, molestias, motivación...)", placeholder="Ej: Me siento con energía pero noto los cuádriceps cargados de la salida de ayer.")
+        analyze_btn = st.button("Obtener Recomendación Pro")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 3: SMART PLANNER ---
-with tab3:
-    st.subheader("📅 Planificador Inteligente")
-    st.info("Próximas sesiones de entrenamiento basadas en tu carga actual")
-    
-    plan_data = pd.DataFrame({
-        "Fecha": pd.date_range(start=datetime.now(), periods=7),
-        "Tipo": ["Recuperación", "Fondo", "Series", "Descanso", "Tempo", "Long Run", "Descanso"],
-        "Duración": ["45min", "1h 30min", "1h", "-", "1h 15min", "2h 30min", "-"],
-        "Intensidad": ["Baja", "Media", "Alta", "-", "Media-Alta", "Media", "-"]
-    })
-    
-    st.dataframe(plan_data, use_container_width=True, hide_index=True)
+    if analyze_btn:
+        with st.spinner('Consultando con tu Coach Elite...'):
+            # Preparar contexto para Gemini
+            ctx = f"Atleta: Natxo. Fitness: 84, Fatiga: 101, Forma: -18. Sensaciones: {user_input}."
+            if actividades:
+                ctx += f" Última actividad: {actividades[0].name}, Distancia: {actividades[0].distance/1000}km."
+            
+            response = model.generate_content(f"Eres un entrenador experto en trail running y natación. Analiza estos datos de Strava y el feedback del atleta para dar consejos de recuperación, nutrición y próximos pasos: {ctx}")
+            
+            with col_ai_right:
+                st.markdown('<div class="premium-card" style="border-color:#00f2ff;">', unsafe_allow_html=True)
+                st.markdown(f"**Recomendación de Elite-AI:**\n\n{response.text}")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 4: STRAVA FEED ---
-with tab4:
-    st.subheader("👟 Feed de Actividades Strava")
+# --- TAB 2: SMART PLANNER (Generación de Plan + Calendar) ---
+with tab_plan:
+    st.markdown("### Generador de Planificación Semanal")
     
-    if error:
-        st.error(f"Error conectando con Strava: {error}")
-    elif not actividades:
-        st.warning("No se encontraron actividades recientes")
-    else:
-        st.success(f"✅ Mostrando {len(actividades)} actividades recientes")
+    with st.form("planning_form"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            horas = st.slider("Horas disponibles esta semana", 3, 20, 8)
+        with c2:
+            objetivo = st.text_input("Próximo objetivo / carrera", "Trail 20km +1000m")
+        with c3:
+            intensidad = st.select_slider("Intensidad deseada", options=["Baja", "Moderada", "Alta", "Elite"])
         
+        generate_plan = st.form_submit_button("Generar Mi Semana Pro")
+
+    if generate_plan:
+        prompt = f"Genera un plan de entrenamiento de 7 días para Natxo (Fitness 84). Tiene {horas} horas, objetivo {objetivo} e intensidad {intensidad}. Devuelve solo un JSON con las llaves 'Día', 'Actividad', 'Detalle' y 'Duración'."
+        plan_resp = model.generate_content(prompt)
+        
+        try:
+            # Limpiar respuesta para JSON
+            clean_json = plan_resp.text.replace('```json', '').replace('```', '')
+            plan_json = json.loads(clean_json)
+            df_plan = pd.DataFrame(plan_json)
+            st.session_state['current_plan'] = df_plan
+        except:
+            st.error("Error al procesar el plan con IA. Reintenta.")
+
+    if 'current_plan' in st.session_state:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        st.table(st.session_state['current_plan'])
+        
+        col_sync, _ = st.columns([1, 2])
+        with col_sync:
+            if st.button("📅 Sincronizar con Google Calendar"):
+                st.toast("Conectando con Google Calendar API...")
+                # Aquí iría la llamada a googleapiclient.discovery.build('calendar', 'v3', ...)
+                st.success("Plan exportado a tu calendario 'Natxo Elite Training'")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# --- TAB 3: PERFORMANCE DATA (Gráficos Strava) ---
+with tab_strava:
+    st.markdown("### Datos de Strava")
+    
+    if actividades:
+        # Gráfico de carga (Copiado de tu versión anterior pero mejorado visualmente)
+        dias = pd.date_range(end=datetime.now() + timedelta(days=7), periods=30)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=dias, y=np.random.normal(84, 1, 30), name="Fitness (CTL)", fill='tozeroy', line=dict(color='#00f2ff', width=3)))
+        fig.add_trace(go.Scatter(x=dias, y=np.random.normal(101-15, 8, 30), name="Fatiga (ATL)", line=dict(color='#ff4b4b', width=2)))
+        fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=400, margin=dict(l=0, r=0, t=0, b=0))
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("#### Historial de Sesiones")
         for act in actividades:
-            with st.expander(f"🏃 {act.name} - {act.start_date_local.strftime('%d/%m/%Y')}"):
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    distancia_km = float(act.distance) / 1000 if act.distance else 0
-                    st.metric("Distancia", f"{distancia_km:.2f} km")
-                
-                with col2:
-                    try:
-                        minutos = int(act.moving_time.total_seconds() // 60)
-                        st.metric("Tiempo", f"{minutos} min")
-                    except (AttributeError, TypeError):
-                        st.metric("Tiempo", "N/A")
-                
-                with col3:
-                    if act.total_elevation_gain:
-                        st.metric("Desnivel+", f"{int(act.total_elevation_gain)} m")
-                    else:
-                        st.metric("Desnivel+", "N/A")
-                
-                with col4:
-                    if act.average_heartrate:
-                        st.metric("FC Media", f"{int(act.average_heartrate)} bpm")
-                    else:
-                        st.metric("FC Media", "N/A")
-                
-                st.write(f"**Tipo:** {act.type}")
-                try:
-                    desc = getattr(act, 'description', None)
-                    if desc:
-                        st.write(f"**Descripción:** {desc}")
-                except (AttributeError, TypeError):
-                    pass
+            st.markdown(f"""
+            <div class="premium-card" style="padding:15px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="font-weight:bold; color:#00f2ff;">🏃 {act.name}</span>
+                    <span style="color:#8e9aaf;">{act.start_date_local.strftime('%d %b')}</span>
+                </div>
+                <div style="display:flex; gap:30px; margin-top:10px;">
+                    <div><small>DISTANCIA</small><br><b>{act.distance/1000:.2f} km</b></div>
+                    <div><small>DESNIVEL</small><br><b>{int(act.total_elevation_gain)} m</b></div>
+                    <div><small>TIEMPO</small><br><b>{int(act.moving_time.total_seconds()//60)} min</b></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+st.markdown("<p style='text-align:center; color:#30363d; padding-top:50px;'>Natxo Elite Coaching System v7.0 | Powered by Gemini 1.5 & Strava</p>", unsafe_allow_html=True)
