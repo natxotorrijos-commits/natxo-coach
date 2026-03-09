@@ -140,10 +140,10 @@ with tab4:
                     st.metric("Distancia", f"{distancia_km:.2f} km")
                 
                 with col2:
-                    if act.moving_time:
+                    try:
                         minutos = int(act.moving_time.total_seconds() // 60)
                         st.metric("Tiempo", f"{minutos} min")
-                    else:
+                    except (AttributeError, TypeError):
                         st.metric("Tiempo", "N/A")
                 
                 with col3:
