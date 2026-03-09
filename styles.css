@@ -1,0 +1,208 @@
+:root {
+    --bg-color: #05070a;
+    --card-bg: #111418;
+    --border-color: #1e2631;
+    --text-main: #ffffff;
+    --text-dim: #8e9aaf;
+    --accent-cyan: #00f2ff;
+    --accent-blue: #0072ff;
+    --accent-red: #ff4b4b;
+    --accent-orange: #ffaa00;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 5%;
+    background: rgba(17, 20, 24, 0.8);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+}
+
+.logo span {
+    color: var(--accent-cyan);
+    font-weight: 300;
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: 0.3s;
+    border-radius: 8px;
+}
+
+.tab-btn.active {
+    color: var(--accent-cyan);
+    background: rgba(0, 242, 255, 0.1);
+    font-weight: bold;
+}
+
+.btn-connect {
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    border: none;
+    padding: 8px 20px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.container {
+    padding: 40px 5%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.content-section {
+    display: none;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.content-section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.kpi-card .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.kpi-card .value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 10px 0;
+}
+
+.kpi-card .trend {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+.highlight-cyan .value {
+    color: var(--accent-cyan);
+}
+
+.highlight-red .value {
+    color: var(--accent-red);
+}
+
+.highlight-orange .value {
+    color: var(--accent-orange);
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.planner-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.planner-table th {
+    text-align: left;
+    color: var(--text-dim);
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.planner-table td {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.planner-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.feed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.activity-card {
+    background: linear-gradient(145deg, #161b22, #0d1117);
+    border-radius: 15px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.activity-card h4 {
+    color: var(--accent-cyan);
+    margin-bottom: 10px;
+}
+
+.activity-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+h2 {
+    color: var(--accent-cyan);
+    margin-bottom: 20px;
+}
