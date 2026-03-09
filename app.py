@@ -159,5 +159,8 @@ with tab4:
                         st.metric("FC Media", "N/A")
                 
                 st.write(f"**Tipo:** {act.type}")
-                if act.description:
-                    st.write(f"**Descripción:** {act.description}")
+                try:
+                    if act.description:
+                        st.write(f"**Descripción:** {act.description}")
+                except (AttributeError, TypeError):
+                    pass
