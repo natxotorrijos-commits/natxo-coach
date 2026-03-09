@@ -11,15 +11,15 @@ st.set_page_config(page_title="NATXO ELITE | Coaching System", page_icon="🏔�
 # CSS Avanzado para Interfaz "Carbon & Neon"
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-    html, body, [class*="st-"] { font-family: 'Inter', sans-serif; }
-    .stApp { background-color: #05070a; color: #ffffff; }
-    .main-header { font-size: 2.5rem; font-weight: 700; color: #00f2ff; margin-bottom: 0.5rem; }
-    .metric-container { background: linear-gradient(145deg, #10141b, #0d1016); border: 1px solid #1e2631; border-radius: 15px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 10px; }
-    .stTabs [data-baseweb="tab"] { background-color: #10141b; border: 1px solid #1e2631; border-radius: 8px; color: #8e9aaf; padding: 10px 30px; }
-    .stTabs [data-baseweb="tab"]:hover { border-color: #00f2ff; color: #fff; }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #00f2ff; color: #05070a; border-color: #00f2ff; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        html, body, [class*="st-"] { font-family: 'Inter', sans-serif; }
+        .stApp { background-color: #05070a; color: #ffffff; }
+        .main-header { font-size: 2.5rem; font-weight: 700; color: #00f2ff; margin-bottom: 0.5rem; }
+        .metric-container { background: linear-gradient(145deg, #10141b, #0d1016); border: 1px solid #1e2631; border-radius: 15px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 10px; }
+        .stTabs [data-baseweb="tab"] { background-color: #10141b; border: 1px solid #1e2631; border-radius: 8px; color: #8e9aaf; padding: 10px 30px; }
+        .stTabs [data-baseweb="tab"]:hover { border-color: #00f2ff; color: #fff; }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #00f2ff; color: #05070a; border-color: #00f2ff; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -82,7 +82,7 @@ with tab1:
         st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
         st.metric("RPE Medio", "7.2", "MODERADO")
         st.markdown("</div>", unsafe_allow_html=True)
-
+    
     # Gráfica de Rendimiento Pro
     dias = pd.date_range(end=datetime.now() + timedelta(days=7), periods=30)
     fig = go.Figure()
@@ -95,4 +95,69 @@ with tab1:
 with tab2:
     st.subheader(f"Simulación Técnica: {dist_obj}km +{desn_obj}m")
     
-    # Cálculo GAP (Grade
+    st.info("🏔️ Análisis de estrategia para ultra trail de montaña")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("Tiempo Estimado", "2h 45min")
+        st.metric("Ritmo Medio Plano", "5:15 min/km")
+    
+    with col2:
+        st.metric("Calorías Estimadas", "1,850 kcal")
+        st.metric("Desnivel/km", f"{int(desn_obj/dist_obj)}m/km")
+
+# --- TAB 3: SMART PLANNER ---
+with tab3:
+    st.subheader("📅 Planificador Inteligente")
+    st.info("Próximas sesiones de entrenamiento basadas en tu carga actual")
+    
+    plan_data = pd.DataFrame({
+        "Fecha": pd.date_range(start=datetime.now(), periods=7),
+        "Tipo": ["Recuperación", "Fondo", "Series", "Descanso", "Tempo", "Long Run", "Descanso"],
+        "Duración": ["45min", "1h 30min", "1h", "-", "1h 15min", "2h 30min", "-"],
+        "Intensidad": ["Baja", "Media", "Alta", "-", "Media-Alta", "Media", "-"]
+    })
+    
+    st.dataframe(plan_data, use_container_width=True, hide_index=True)
+
+# --- TAB 4: STRAVA FEED ---
+with tab4:
+    st.subheader("👟 Feed de Actividades Strava")
+    
+    if error:
+        st.error(f"Error conectando con Strava: {error}")
+    elif not actividades:
+        st.warning("No se encontraron actividades recientes")
+    else:
+        st.success(f"✅ Mostrando {len(actividades)} actividades recientes")
+        
+        for act in actividades:
+            with st.expander(f"🏃 {act.name} - {act.start_date_local.strftime('%d/%m/%Y')}"):
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    distancia_km = float(act.distance) / 1000 if act.distance else 0
+                    st.metric("Distancia", f"{distancia_km:.2f} km")
+                
+                with col2:
+                    if act.moving_time:
+                        minutos = int(act.moving_time.total_seconds() // 60)
+                        st.metric("Tiempo", f"{minutos} min")
+                    else:
+                        st.metric("Tiempo", "N/A")
+                
+                with col3:
+                    if act.total_elevation_gain:
+                        st.metric("Desnivel+", f"{int(act.total_elevation_gain)} m")
+                    else:
+                        st.metric("Desnivel+", "N/A")
+                
+                with col4:
+                    if act.average_heartrate:
+                        st.metric("FC Media", f"{int(act.average_heartrate)} bpm")
+                    else:
+                        st.metric("FC Media", "N/A")
+                
+                st.write(f"**Tipo:** {act.type}")
+                if act.description:
+                    st.write(f"**Descripción:** {act.description}")
