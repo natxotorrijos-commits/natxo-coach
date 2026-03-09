@@ -136,26 +136,29 @@ with tab4:
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
+                    try:
                     distancia_km = float(act.distance) / 1000 if act.distance else 0
                     st.metric("Distancia", f"{distancia_km:.2f} km")
+                except (AttributeError, TypeError):
+                    st.metric("Distancia", "N/A")
                 
                 with col2:
-                    if act.moving_time:
+                    try:
                         minutos = int(act.moving_time.total_seconds() // 60)
                         st.metric("Tiempo", f"{minutos} min")
-                    else:
+                    except (AttributeError, TypeError):
                         st.metric("Tiempo", "N/A")
                 
                 with col3:
-                    if act.total_elevation_gain:
+                    try:
                         st.metric("Desnivel+", f"{int(act.total_elevation_gain)} m")
-                    else:
+                    except (AttributeError, TypeError):
                         st.metric("Desnivel+", "N/A")
                 
                 with col4:
-                    if act.average_heartrate:
+                    try:
                         st.metric("FC Media", f"{int(act.average_heartrate)} bpm")
-                    else:
+                    except (AttributeError, TypeError):
                         st.metric("FC Media", "N/A")
                 
                 st.write(f"**Tipo:** {act.type}")
