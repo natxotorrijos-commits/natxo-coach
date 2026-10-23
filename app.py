@@ -7,10 +7,10 @@ from datetime import datetime, timedelta, date
 from stravalib.client import Client
 
 try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
+    import anthropic as anthropic_sdk
+    CLAUDE_AVAILABLE = True
 except:
-    GEMINI_AVAILABLE = False
+    CLAUDE_AVAILABLE = False
 
 st.set_page_config(page_title="NATXO ELITE | AI Coach", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
@@ -135,12 +135,12 @@ def fstatus(ctl,atl,tsb):
     return "FATIGA","#ff4b4b","Prioriza descanso"
 
 # ── Gemini ───────────────────────────────────────────────────────────────────
-def init_gemini():
-    if not GEMINI_AVAILABLE: return None
+def init_claude():
+    if not CLAUDE_AVAILABLE: return None
     try:
-        if "GOOGLE_API_KEY" in st.secrets:
-            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            return genai.GenerativeModel("gemini-1.5-flash")
+        api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        if api_key:
+            return anthropic_sdk.Anthropic(api_key=api_key)
     except: pass
     return None
 
@@ -166,8 +166,9 @@ CHECK-IN: Energía {checkin.get('energia',7)}/10 | Ayer: {checkin.get('entreno_a
 Devuelve SOLO JSON válido sin markdown:
 {{"sesion_hoy":{{"tipo":"string","duracion":"string","descripcion":"descripción detallada con series/ritmos/zonas concretas","zonas":"string p.ej. Z2 105-128ppm","intensidad":"Baja|Moderada|Alta|Muy Alta","consejo":"consejo personal del coach"}},"semana":[{{"dia":"Lunes","actividad":"string","duracion":"string","detalle":"string"}},{{"dia":"Martes","actividad":"string","duracion":"string","detalle":"string"}},{{"dia":"Miércoles","actividad":"string","duracion":"string","detalle":"string"}},{{"dia":"Jueves","actividad":"string","duracion":"string","detalle":"string"}},{{"dia":"Viernes","actividad":"string","duracion":"string","detalle":"string"}},{{"dia":"Sábado","actividad":"string","duracion":"string","detalle":"string"}},{{"dia":"Domingo","actividad":"string","duracion":"string","detalle":"string"}}],"consejo_clave":"string","advertencia":null,"fase":"string"}}"""
     try:
-        resp=model.generate_content(prompt)
-        text=resp.text.strip().replace("```json","").replace("```","").strip()
+        msg=model.messages.create(model="claude-sonnet-4-5",max_tokens=2048,
+            messages=[{"role":"user","content":prompt}])
+        text=msg.content[0].text.strip().replace("```json","").replace("```","").strip()
         return json.loads(text)
     except: return None
 
@@ -330,7 +331,7 @@ def render_app(profile, client, model):
             if st.button("🔄 Regenerar plan"):
                 profile.get("daily_plans",{}).pop(today_str,None); save_profile(profile); st.rerun()
         elif not model:
-            st.info("Configura GOOGLE_API_KEY en Streamlit Secrets para activar el plan con IA.")
+            st.info("Configura ANTHROPIC_API_KEY en Streamlit Secrets para activar el plan con IA.")
 
     with tab2:
         plan=profile.get("daily_plans",{}).get(today_str)
@@ -447,7 +448,7 @@ def render_welcome(cfg):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    profile=load_profile(); cfg=get_cfg(); model=init_gemini()
+    profile=load_profile(); cfg=get_cfg(); model=init_claude()
     params=st.query_params
     if "code" in params and cfg:
         code=params["code"]
