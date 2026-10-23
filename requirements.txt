@@ -3,6 +3,7 @@ pandas
 plotly
 stravalib
 numpy
+requests
 google-generativeai
 google-auth
 google-auth-oauthlib
