@@ -505,6 +505,13 @@ def render_welcome(cfg):
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     profile=load_profile(); cfg=get_cfg(); model=init_claude()
+    # Auto-bootstrap tokens from Secrets (bypasses OAuth flow)
+    if cfg and not profile["strava_tokens"].get("refresh_token"):
+        rt=st.secrets.get("STRAVA_REFRESH_TOKEN","")
+        at=st.secrets.get("STRAVA_ACCESS_TOKEN","")
+        if rt:
+            profile["strava_tokens"]={"access_token":at,"refresh_token":rt,"expires_at":0}
+            save_profile(profile)
     params=st.query_params
     if "code" in params and cfg:
         code=params["code"]
