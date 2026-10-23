@@ -144,6 +144,59 @@ def init_claude():
     except: pass
     return None
 
+def gen_plan_rules(profile, ctl, atl, tsb, checkin, today):
+    """Fallback plan generator based on metrics and training logic."""
+    g = profile.get("goals", {})
+    fc = g.get("fc_max", 185)
+    wd = today.weekday()  # 0=Mon … 6=Sun
+    energia = checkin.get("energia", 7)
+    molestias = checkin.get("molestias", "ninguna").lower()
+    tiene_molestias = molestias not in ("ninguna", "none", "", "no")
+    day_es = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
+
+    # Decide today's session based on TSB, energy and day
+    if tsb < -25 or energia <= 3 or tiene_molestias:
+        sesion = {"tipo":"Recuperación activa","duracion":"30–40 min","intensidad":"Baja",
+            "zonas":f"Z1 (< {int(fc*.6)} ppm)",
+            "descripcion":"Rodaje muy suave o caminata. Mantén la FC por debajo de Z2. El objetivo es activar la circulación sin añadir fatiga.",
+            "consejo":"Tu cuerpo necesita descanso. Menos es más hoy." }
+    elif wd in (1, 4) and tsb > -15 and energia >= 6:  # Tue/Thu → quality
+        sesion = {"tipo":"Series de Velocidad","duracion":"60–70 min","intensidad":"Alta",
+            "zonas":f"Z4 ({int(fc*.75)}–{int(fc*.85)} ppm)",
+            "descripcion":f"Calentamiento 15 min Z2. Bloque: 6×800 m a ritmo 10K (aprox. 4:10–4:20/km), recuperación 90 seg. Vuelta a la calma 10 min.",
+            "consejo":"Arranca conservador en las 2 primeras series y acelera en las últimas." }
+    elif wd == 5 and energia >= 5:  # Saturday → long trail
+        sesion = {"tipo":"Salida Larga de Trail","duracion":"90–120 min","intensidad":"Moderada",
+            "zonas":f"Z2–Z3 ({int(fc*.6)}–{int(fc*.8)} ppm)",
+            "descripcion":"Sal por monte o camino con desnivel. Mantén conversación posible. Objetivo: tiempo en piernas y desnivel acumulado (+200 m mínimo).",
+            "consejo":"Lleva agua y gel si superas 75 min. Camina los repechos para no pasarte de Z3." }
+    elif wd == 6:  # Sunday → strength or rest
+        sesion = {"tipo":"Pesas / Fuerza","duracion":"45–55 min","intensidad":"Moderada",
+            "zonas":"Frecuencia cardíaca libre",
+            "descripcion":"Sentadillas 4×10, peso muerto rumano 3×12, zancadas 3×10 cada pierna, plancha 3×45 seg, elevaciones de talón 3×15. Descanso 60–90 seg entre series.",
+            "consejo":"Trabaja el tren inferior excéntrico para proteger rodillas en bajadas de trail." }
+    else:  # default Z2 run
+        sesion = {"tipo":"Rodaje Aeróbico Z2","duracion":"50–60 min","intensidad":"Baja",
+            "zonas":f"Z2 ({int(fc*.6)}–{int(fc*.7)} ppm)",
+            "descripcion":"Ritmo cómodo, conversación fluida. Si llevas pulsómetro, no salgas de Z2. Terreno llano o ligero.",
+            "consejo":"El 80% del entrenamiento debe ser Z2. Hoy toca construir base aeróbica." }
+
+    # Build weekly template
+    plantilla = [
+        {"dia":"Lunes","actividad":"Descanso","duracion":"—","detalle":"Recuperación total"},
+        {"dia":"Martes","actividad":"Series Z4","duracion":"65 min","detalle":"6×800m ritmo 10K"},
+        {"dia":"Miércoles","actividad":"Natación","duracion":"40 min","detalle":"1.200–1.500 m técnica"},
+        {"dia":"Jueves","actividad":"Rodaje Z2","duracion":"55 min","detalle":"Fondo aeróbico cómodo"},
+        {"dia":"Viernes","actividad":"Descanso","duracion":"—","detalle":"o 30 min suave"},
+        {"dia":"Sábado","actividad":"Trail Largo","duracion":"100 min","detalle":"~15 km +200 m Z2-Z3"},
+        {"dia":"Domingo","actividad":"Pesas","duracion":"50 min","detalle":"Core + tren inferior"},
+    ]
+
+    fase = "Semana de Base" if tsb < -10 else "Semana de Calidad" if tsb > 5 else "Semana de Mantenimiento"
+    consejo = (f"TSB {tsb:+.0f} — {'Estás fresco, aprovecha para calidad.' if tsb>5 else 'Carga moderada, combina calidad y recuperación.' if tsb>-10 else 'Acumulando fatiga. Prioriza el sueño y la nutrición.'}")
+
+    return {"sesion_hoy":sesion,"semana":plantilla,"consejo_clave":consejo,"advertencia":None,"fase":fase}
+
 def gen_plan(model,profile,recent_summary,ctl,atl,tsb,checkin,today):
     g=profile.get("goals",{}); fst,_,_=fstatus(ctl,atl,tsb)
     day_es=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"][today.weekday()]
@@ -299,11 +352,14 @@ def render_app(profile, client, model):
             render_checkin(profile); return
 
         plan=profile.get("daily_plans",{}).get(today_str)
-        if not plan and model:
-            recent=df.tail(7)
-            lines=[f"  {r['date'].strftime('%d/%m')}: {r['type']} {r['distance_km']:.1f}km {r['duration_min']:.0f}min +{r['elevation_m']:.0f}m" for _,r in recent.iterrows()] if not df.empty else ["Sin actividades recientes"]
-            with st.spinner("🤖 Generando plan con IA..."):
-                plan=gen_plan(model,profile,"\n".join(lines),ctl,atl,tsb,checkin,today)
+        if not plan:
+            if model:
+                recent=df.tail(7)
+                lines=[f"  {r['date'].strftime('%d/%m')}: {r['type']} {r['distance_km']:.1f}km {r['duration_min']:.0f}min +{r['elevation_m']:.0f}m" for _,r in recent.iterrows()] if not df.empty else ["Sin actividades recientes"]
+                with st.spinner("🤖 Generando plan con IA..."):
+                    plan=gen_plan(model,profile,"\n".join(lines),ctl,atl,tsb,checkin,today)
+            else:
+                plan=gen_plan_rules(profile,ctl,atl,tsb,checkin,today)
             if plan:
                 profile.setdefault("daily_plans",{})[today_str]=plan; save_profile(profile)
         if plan:
@@ -330,8 +386,8 @@ def render_app(profile, client, model):
                 if content: st.markdown(f"""<div class="premium-card" style="border-color:{border};"><p style="color:{border};font-weight:700;margin-bottom:8px;">{icon} {label}</p><p style="color:#d0e0ff;margin:0;">{content}</p></div>""",unsafe_allow_html=True)
             if st.button("🔄 Regenerar plan"):
                 profile.get("daily_plans",{}).pop(today_str,None); save_profile(profile); st.rerun()
-        elif not model:
-            st.info("Configura ANTHROPIC_API_KEY en Streamlit Secrets para activar el plan con IA.")
+        if not model:
+            st.caption("💡 Plan generado por reglas. Añade ANTHROPIC_API_KEY en Secrets para activar el coach IA.")
 
     with tab2:
         plan=profile.get("daily_plans",{}).get(today_str)
@@ -424,7 +480,7 @@ def render_app(profile, client, model):
             if st.button("🔗 Reconectar Strava"):
                 profile["strava_tokens"]={}; save_profile(profile); st.rerun()
 
-    st.markdown('<p style="text-align:center;color:#222;margin-top:50px;font-size:0.75rem;">⚡ Natxo Elite Coaching System · Gemini AI & Strava · Datos cada 10 min</p>',unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center;color:#333;margin-top:50px;font-size:0.75rem;">⚡ Natxo Elite Coaching System · Claude AI & Strava</p>',unsafe_allow_html=True)
 
 # ── Bienvenida ────────────────────────────────────────────────────────────────
 def render_welcome(cfg):
