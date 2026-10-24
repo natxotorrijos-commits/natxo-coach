@@ -102,6 +102,17 @@ def to_df(acts):
     if not rows: return pd.DataFrame(columns=["date","name","type","distance_km","duration_min","elevation_m","avg_hr","suffer","calories"])
     return pd.DataFrame(rows).sort_values("date")
 
+def to_df_from_cache(raw):
+    rows=[]
+    for a in raw:
+        s=a.get("summary",{})
+        rows.append({"date":pd.Timestamp(a["start_local"]),"name":a.get("name",""),
+            "type":a.get("sport_type",""),"distance_km":s.get("distance",0)/1000,
+            "duration_min":s.get("moving_time",0)/60,"elevation_m":s.get("elevation_gain",0),
+            "avg_hr":0,"suffer":s.get("relative_effort",0),"calories":s.get("total_calories",0)})
+    if not rows: return pd.DataFrame(columns=["date","name","type","distance_km","duration_min","elevation_m","avg_hr","suffer","calories"])
+    return pd.DataFrame(rows).sort_values("date")
+
 def calc_tss(row, fc_max=185):
     if row.get("suffer",0)>0: return float(row["suffer"])*1.5
     dur_h=row.get("duration_min",0)/60
@@ -320,8 +331,16 @@ def render_app(profile, client, model):
     today=date.today(); today_str=today.isoformat()
     fc_max=profile["goals"].get("fc_max",185)
     with st.spinner("Sincronizando Strava..."):
-        acts,_=fetch_acts(client.access_token,days=90)
-    df=to_df(acts)
+        acts,err=fetch_acts(client.access_token,days=90) if client else ([],None)
+    if acts:
+        df=to_df(acts)
+    else:
+        cache_path=os.path.join(os.path.dirname(os.path.abspath(__file__)),"strava_cache.json")
+        if os.path.exists(cache_path):
+            with open(cache_path) as f: raw=json.load(f)
+            df=to_df_from_cache(raw)
+        else:
+            df=pd.DataFrame(columns=["date","name","type","distance_km","duration_min","elevation_m","avg_hr","suffer","calories"])
     mdf,ctl,atl,tsb=calc_metrics(df,fc_max)
     flabel,fcolor,fdesc=fstatus(ctl,atl,tsb)
     checkin=profile.get("last_checkin",{}).get(today_str,{})
