@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Gmail__search_threads",
+      "mcp__Gmail__get_thread",
+      "mcp__Gmail__trash_thread",
+      "mcp__Gmail__trash_message",
+      "mcp__ms365__outlook_email_search",
+      "mcp__ms365__outlook_batch_delete_messages"
+    ]
+  }
+}
